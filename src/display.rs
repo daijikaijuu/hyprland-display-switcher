@@ -1,7 +1,7 @@
+use crate::config::{ExtendConfiguration, ExtendLayout};
 use hyprland::data::Monitor;
 use hyprland::dispatch::{Dispatch, DispatchType};
 use std::process::Command;
-use crate::config::{ExtendConfiguration, ExtendLayout};
 
 pub fn apply_mirror_mode(monitors: &[Monitor]) -> Result<(), String> {
     if monitors.len() < 2 {
@@ -21,7 +21,11 @@ pub fn apply_mirror_mode(monitors: &[Monitor]) -> Result<(), String> {
     // Configure secondary monitor to mirror primary
     Dispatch::call(DispatchType::Exec(&format!(
         "hyprctl keyword monitor \"{},{}x{},0x0,{},mirror,{}\"",
-        secondary_mon.name, primary_mon.width, primary_mon.height, primary_mon.scale, primary_mon.name
+        secondary_mon.name,
+        primary_mon.width,
+        primary_mon.height,
+        primary_mon.scale,
+        primary_mon.name
     )))
     .map_err(|e| e.to_string())?;
 
@@ -34,11 +38,13 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
     }
 
     // Find monitors by name
-    let primary_monitor = monitors.iter()
+    let primary_monitor = monitors
+        .iter()
         .find(|m| m.name == config.primary_monitor)
         .ok_or("Primary monitor not found")?;
-    
-    let _secondary_monitor = monitors.iter()
+
+    let _secondary_monitor = monitors
+        .iter()
         .find(|m| m.name == config.secondary_monitor)
         .ok_or("Secondary monitor not found")?;
 
@@ -48,21 +54,36 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
     } else {
         config.primary_resolution.clone()
     };
-    
+
     // Parse dimensions for positioning calculations
     let primary_width = if config.primary_resolution == "auto" {
         primary_monitor.width as i32
     } else {
-        primary_resolution.split('x').next().unwrap_or("1920").parse().unwrap_or(1920)
+        primary_resolution
+            .split('x')
+            .next()
+            .unwrap_or("1920")
+            .parse()
+            .unwrap_or(1920)
     };
-    
+
     let primary_height = if config.primary_resolution == "auto" {
         primary_monitor.height as i32
     } else {
-        primary_resolution.split('x').nth(1).unwrap_or("1080").parse().unwrap_or(1080)
+        primary_resolution
+            .split('x')
+            .nth(1)
+            .unwrap_or("1080")
+            .parse()
+            .unwrap_or(1080)
     };
-    
-    let (primary_pos, secondary_pos) = calculate_positions(&config.layout, primary_width, primary_height, &config.secondary_resolution);
+
+    let (primary_pos, secondary_pos) = calculate_positions(
+        &config.layout,
+        primary_width,
+        primary_height,
+        &config.secondary_resolution,
+    );
 
     // Build transform strings
     let primary_transform = get_transform_string(&config.primary_rotation);
@@ -73,37 +94,42 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
         "hyprctl keyword monitor {},{}{}",
         config.primary_monitor,
         if config.primary_resolution == "auto" {
-            format!("auto,{},1", primary_pos)
+            format!("auto,{primary_pos},1")
         } else {
             format!("{},{},1", config.primary_resolution, primary_pos)
         },
         primary_transform
     );
-    
+
     let secondary_command = format!(
-        "hyprctl keyword monitor {},{}{}",
+        "hyprctl keyword monitor {},{},{},1{}",
         config.secondary_monitor,
-        format!("{},{},1", config.secondary_resolution, secondary_pos),
+        config.secondary_resolution,
+        secondary_pos,
         secondary_transform
     );
-    
-    eprintln!("Primary command: {}", primary_command);
-    eprintln!("Secondary command: {}", secondary_command);
+
+    eprintln!("Primary command: {primary_command}");
+    eprintln!("Secondary command: {secondary_command}");
 
     // Disable both monitors first to reset their state
-    Dispatch::call(DispatchType::Exec(&format!("hyprctl keyword monitor {},disable", config.primary_monitor)))
-        .map_err(|e| e.to_string())?;
-    Dispatch::call(DispatchType::Exec(&format!("hyprctl keyword monitor {},disable", config.secondary_monitor)))
-        .map_err(|e| e.to_string())?;
-    
+    Dispatch::call(DispatchType::Exec(&format!(
+        "hyprctl keyword monitor {},disable",
+        config.primary_monitor
+    )))
+    .map_err(|e| e.to_string())?;
+    Dispatch::call(DispatchType::Exec(&format!(
+        "hyprctl keyword monitor {},disable",
+        config.secondary_monitor
+    )))
+    .map_err(|e| e.to_string())?;
+
     // Wait for the changes to take effect
     std::thread::sleep(std::time::Duration::from_millis(1000));
-    
+
     // Apply both monitor configurations
-    Dispatch::call(DispatchType::Exec(&primary_command))
-        .map_err(|e| e.to_string())?;
-    Dispatch::call(DispatchType::Exec(&secondary_command))
-        .map_err(|e| e.to_string())?;
+    Dispatch::call(DispatchType::Exec(&primary_command)).map_err(|e| e.to_string())?;
+    Dispatch::call(DispatchType::Exec(&secondary_command)).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -137,8 +163,7 @@ pub fn apply_single_screen_mode(monitors: &[Monitor], primary_only: bool) -> Res
 }
 
 pub fn reset_to_defaults() -> Result<(), String> {
-    Dispatch::call(DispatchType::Exec("hyprctl reload"))
-        .map_err(|e| e.to_string())?;
+    Dispatch::call(DispatchType::Exec("hyprctl reload")).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -149,11 +174,11 @@ pub fn get_monitor_available_modes(monitor_name: &str) -> Vec<String> {
         Ok(output) if output.status.success() => {
             let output_str = String::from_utf8_lossy(&output.stdout);
             let modes = parse_monitor_modes(&output_str, monitor_name);
-            eprintln!("Available modes for {}: {:?}", monitor_name, modes);
+            eprintln!("Available modes for {monitor_name}: {modes:?}");
             modes
         }
         _ => {
-            eprintln!("Failed to get modes for {}, using fallback", monitor_name);
+            eprintln!("Failed to get modes for {monitor_name}, using fallback");
             // Fallback to common resolutions if hyprctl fails
             vec![
                 "1920x1080".to_string(),
@@ -167,18 +192,33 @@ pub fn get_monitor_available_modes(monitor_name: &str) -> Vec<String> {
     }
 }
 
-fn calculate_positions(layout: &ExtendLayout, primary_width: i32, primary_height: i32, secondary_resolution: &str) -> (String, String) {
+fn calculate_positions(
+    layout: &ExtendLayout,
+    primary_width: i32,
+    primary_height: i32,
+    secondary_resolution: &str,
+) -> (String, String) {
     match layout {
-        ExtendLayout::LeftToRight => ("0x0".to_string(), format!("{}x0", primary_width)),
+        ExtendLayout::LeftToRight => ("0x0".to_string(), format!("{primary_width}x0")),
         ExtendLayout::RightToLeft => {
-            let secondary_width = secondary_resolution.split('x').next().unwrap_or("1920").parse::<i32>().unwrap_or(1920);
-            (format!("{}x0", secondary_width), "0x0".to_string())
-        },
-        ExtendLayout::TopToBottom => ("0x0".to_string(), format!("0x{}", primary_height)),
+            let secondary_width = secondary_resolution
+                .split('x')
+                .next()
+                .unwrap_or("1920")
+                .parse::<i32>()
+                .unwrap_or(1920);
+            (format!("{secondary_width}x0"), "0x0".to_string())
+        }
+        ExtendLayout::TopToBottom => ("0x0".to_string(), format!("0x{primary_height}")),
         ExtendLayout::BottomToTop => {
-            let secondary_height = secondary_resolution.split('x').nth(1).unwrap_or("1080").parse::<i32>().unwrap_or(1080);
-            (format!("0x{}", secondary_height), "0x0".to_string())
-        },
+            let secondary_height = secondary_resolution
+                .split('x')
+                .nth(1)
+                .unwrap_or("1080")
+                .parse::<i32>()
+                .unwrap_or(1080);
+            (format!("0x{secondary_height}"), "0x0".to_string())
+        }
     }
 }
 
@@ -199,7 +239,7 @@ fn parse_monitor_modes(output: &str, target_monitor: &str) -> Vec<String> {
         let trimmed = line.trim();
 
         // Check if we're entering the target monitor section
-        if trimmed.starts_with(&format!("Monitor {}", target_monitor)) {
+        if trimmed.starts_with(&format!("Monitor {target_monitor}")) {
             in_target_monitor = true;
             continue;
         }
@@ -207,25 +247,23 @@ fn parse_monitor_modes(output: &str, target_monitor: &str) -> Vec<String> {
         // Check if we're leaving the current monitor section
         if in_target_monitor
             && trimmed.starts_with("Monitor ")
-            && !trimmed.starts_with(&format!("Monitor {}", target_monitor))
+            && !trimmed.starts_with(&format!("Monitor {target_monitor}"))
         {
             break;
         }
 
         // Look for the available modes section
-        if in_target_monitor {
-            if trimmed.starts_with("availableModes:") {
-                // Extract modes from the same line: "availableModes: 1920x1080@60.00Hz ..."
-                let modes_str = trimmed.strip_prefix("availableModes:").unwrap_or("").trim();
-                for mode_str in modes_str.split_whitespace() {
-                    if let Some(resolution) = extract_resolution_from_line(mode_str) {
-                        if !modes.contains(&resolution) {
-                            modes.push(resolution);
-                        }
+        if in_target_monitor && trimmed.starts_with("availableModes:") {
+            // Extract modes from the same line: "availableModes: 1920x1080@60.00Hz ..."
+            let modes_str = trimmed.strip_prefix("availableModes:").unwrap_or("").trim();
+            for mode_str in modes_str.split_whitespace() {
+                if let Some(resolution) = extract_resolution_from_line(mode_str) {
+                    if !modes.contains(&resolution) {
+                        modes.push(resolution);
                     }
                 }
-                break; // We found the modes line, we're done
             }
+            break; // We found the modes line, we're done
         }
     }
 

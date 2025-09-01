@@ -2,7 +2,10 @@ mod config;
 mod display;
 
 use config::{ConfigManager, ExtendLayout};
-use display::{apply_extend_mode, apply_mirror_mode, apply_single_screen_mode, reset_to_defaults, get_monitor_available_modes};
+use display::{
+    apply_extend_mode, apply_mirror_mode, apply_single_screen_mode, get_monitor_available_modes,
+    reset_to_defaults,
+};
 
 use std::process;
 
@@ -92,7 +95,6 @@ struct MonitorSettingsData {
     available_monitors: Vec<String>,
 }
 
-
 impl Default for MonitorSettingsData {
     fn default() -> Self {
         Self {
@@ -119,14 +121,14 @@ impl Application for DisplaySwitcher {
         let app = match Self::new() {
             Ok(app) => app,
             Err(e) => {
-                eprintln!("Failed to initialize application: {}", e);
+                eprintln!("Failed to initialize application: {e}");
                 Self {
                     state: State::Error { message: e },
                     config_manager: ConfigManager::new().unwrap_or_default(),
                 }
             }
         };
-        
+
         (
             app,
             Task::perform(
@@ -170,8 +172,12 @@ impl Application for DisplaySwitcher {
                         DisplayMode::Mirror => apply_mirror_mode(monitors),
                         DisplayMode::Extend => {
                             // Check if we have a saved configuration for these monitors
-                            let monitor_names: Vec<String> = monitors.iter().map(|m| m.name.clone()).collect();
-                            if let Some(saved_config) = self.config_manager.get_extend_configuration_for_monitors(&monitor_names) {
+                            let monitor_names: Vec<String> =
+                                monitors.iter().map(|m| m.name.clone()).collect();
+                            if let Some(saved_config) = self
+                                .config_manager
+                                .get_extend_configuration_for_monitors(&monitor_names)
+                            {
                                 apply_extend_mode(monitors, saved_config)
                             } else {
                                 // Create default extend configuration
@@ -194,9 +200,9 @@ impl Application for DisplaySwitcher {
                         DisplayMode::MainScreenOnly => apply_single_screen_mode(monitors, true),
                         DisplayMode::SecondScreenOnly => apply_single_screen_mode(monitors, false),
                     };
-                    
+
                     if let Err(e) = result {
-                        eprintln!("Error applying display mode: {}", e);
+                        eprintln!("Error applying display mode: {e}");
                     }
                 }
                 process::exit(0);
@@ -208,20 +214,26 @@ impl Application for DisplaySwitcher {
                     }
 
                     // Try to load saved configuration first
-                    let monitor_names: Vec<String> = monitors.iter().map(|m| m.name.clone()).collect();
-                    let settings = if let Some(saved_config) = self.config_manager.get_extend_configuration_for_monitors(&monitor_names) {
-                        eprintln!("Loading saved configuration: Primary={}, Secondary={}", 
-                                 saved_config.primary_monitor, saved_config.secondary_monitor);
-                        
+                    let monitor_names: Vec<String> =
+                        monitors.iter().map(|m| m.name.clone()).collect();
+                    let settings = if let Some(saved_config) = self
+                        .config_manager
+                        .get_extend_configuration_for_monitors(&monitor_names)
+                    {
+                        eprintln!(
+                            "Loading saved configuration: Primary={}, Secondary={}",
+                            saved_config.primary_monitor, saved_config.secondary_monitor
+                        );
+
                         // Find which monitor is primary in saved config
                         let primary_monitor = &saved_config.primary_monitor;
                         let secondary_monitor = &saved_config.secondary_monitor;
-                        
+
                         // Get available resolutions for the actual primary and secondary monitors
                         let mut primary_available = vec!["auto".to_string()];
                         primary_available.extend(get_monitor_available_modes(primary_monitor));
                         let secondary_available = get_monitor_available_modes(secondary_monitor);
-                        
+
                         MonitorSettingsData {
                             primary_monitor: saved_config.primary_monitor.clone(),
                             primary_resolution: saved_config.primary_resolution.clone(),
@@ -234,12 +246,15 @@ impl Application for DisplaySwitcher {
                             available_monitors: monitors.iter().map(|m| m.name.clone()).collect(),
                         }
                     } else {
-                        eprintln!("No saved configuration found, using defaults with {} as primary", monitors[0].name);
+                        eprintln!(
+                            "No saved configuration found, using defaults with {} as primary",
+                            monitors[0].name
+                        );
                         // Use default settings with first monitor as primary
                         let mut primary_available = vec!["auto".to_string()];
                         primary_available.extend(get_monitor_available_modes(&monitors[0].name));
                         let secondary_available = get_monitor_available_modes(&monitors[1].name);
-                        
+
                         MonitorSettingsData {
                             primary_monitor: monitors[0].name.clone(),
                             primary_resolution: "auto".to_string(),
@@ -304,7 +319,11 @@ impl Application for DisplaySwitcher {
                 Task::none()
             }
             Message::UpdateLayout(layout) => {
-                if let State::MonitorSettings { monitors: _, settings } = &mut self.state {
+                if let State::MonitorSettings {
+                    monitors: _,
+                    settings,
+                } = &mut self.state
+                {
                     settings.layout = layout;
                 }
                 Task::none()
@@ -312,20 +331,24 @@ impl Application for DisplaySwitcher {
             Message::UpdatePrimaryMonitor(monitor_name) => {
                 if let State::MonitorSettings { monitors, settings } = &mut self.state {
                     settings.primary_monitor = monitor_name.clone();
-                    
+
                     // Update available resolutions for the new primary monitor
                     let primary_modes = get_monitor_available_modes(&monitor_name);
                     let mut primary_available = vec!["auto".to_string()];
                     primary_available.extend(primary_modes);
                     settings.primary_available_resolutions = primary_available;
-                    
+
                     // Update available resolutions for secondary monitor
-                    if let Some(secondary_monitor) = monitors.iter().find(|m| m.name != monitor_name) {
-                        settings.secondary_available_resolutions = get_monitor_available_modes(&secondary_monitor.name);
-                        
+                    if let Some(secondary_monitor) =
+                        monitors.iter().find(|m| m.name != monitor_name)
+                    {
+                        settings.secondary_available_resolutions =
+                            get_monitor_available_modes(&secondary_monitor.name);
+
                         // Reset resolution settings to defaults for the new configuration
                         settings.primary_resolution = "auto".to_string();
-                        settings.secondary_resolution = settings.secondary_available_resolutions
+                        settings.secondary_resolution = settings
+                            .secondary_available_resolutions
                             .first()
                             .cloned()
                             .unwrap_or_else(|| "1920x1080".to_string());
@@ -336,11 +359,12 @@ impl Application for DisplaySwitcher {
             Message::ApplyExtendSettings => {
                 if let State::MonitorSettings { monitors, settings } = &mut self.state {
                     // Find secondary monitor name
-                    let secondary_monitor = monitors.iter()
+                    let secondary_monitor = monitors
+                        .iter()
                         .find(|m| m.name != settings.primary_monitor)
                         .map(|m| m.name.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
-                    
+
                     // Create and save configuration
                     let extend_config = ConfigManager::create_config_from_settings(
                         settings.primary_monitor.clone(),
@@ -351,15 +375,18 @@ impl Application for DisplaySwitcher {
                         settings.secondary_rotation.clone(),
                         settings.layout.clone(),
                     );
-                    
+
                     // Save configuration
-                    if let Err(e) = self.config_manager.save_extend_configuration(extend_config.clone()) {
-                        eprintln!("Failed to save configuration: {}", e);
+                    if let Err(e) = self
+                        .config_manager
+                        .save_extend_configuration(extend_config.clone())
+                    {
+                        eprintln!("Failed to save configuration: {e}");
                     }
-                    
+
                     // Apply the configuration
                     if let Err(e) = apply_extend_mode(monitors, &extend_config) {
-                        eprintln!("Error applying extend mode settings: {}", e);
+                        eprintln!("Error applying extend mode settings: {e}");
                     }
                 }
                 process::exit(0);
@@ -377,20 +404,15 @@ impl Application for DisplaySwitcher {
             }
             Message::ResetToDefaults => {
                 if let Err(e) = reset_to_defaults() {
-                    eprintln!("Error resetting to defaults: {}", e);
+                    eprintln!("Error resetting to defaults: {e}");
                 }
                 process::exit(0);
             }
-            Message::IcedEvent(event) => {
-                match event {
-                    Event::Keyboard(keyboard::Event::KeyPressed {
-                        key: keyboard::Key::Named(keyboard::key::Named::Escape),
-                        ..
-                    }) => {
-                        process::exit(0);
-                    }
-                    _ => Task::none()
-                }
+            Message::IcedEvent(Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(keyboard::key::Named::Escape),
+                ..
+            })) => {
+                process::exit(0);
             }
             _ => Task::none(),
         }
@@ -405,7 +427,7 @@ impl Application for DisplaySwitcher {
                 .align_y(alignment::Vertical::Center)
                 .style(container_style())
                 .into(),
-            State::Error { message } => container(text(format!("Error: {}", message)).size(16))
+            State::Error { message } => container(text(format!("Error: {message}")).size(16))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .align_x(alignment::Horizontal::Center)
@@ -517,8 +539,8 @@ impl Application for DisplaySwitcher {
 impl DisplaySwitcher {
     fn new() -> Result<Self, String> {
         let config_manager = ConfigManager::new()
-            .map_err(|e| format!("Failed to initialize config manager: {}", e))?;
-        
+            .map_err(|e| format!("Failed to initialize config manager: {e}"))?;
+
         Ok(Self {
             state: State::Loading,
             config_manager,
@@ -543,7 +565,7 @@ impl DisplaySwitcher {
             .unwrap_or("Secondary");
 
         let primary_section = column![
-            text(format!("Primary Monitor ({})", primary_monitor_name))
+            text(format!("Primary Monitor ({primary_monitor_name})"))
                 .size(16)
                 .style(card_title_text_style()),
             row![
@@ -576,7 +598,7 @@ impl DisplaySwitcher {
         .spacing(8);
 
         let secondary_section = column![
-            text(format!("Secondary Monitor ({})", secondary_monitor_name))
+            text(format!("Secondary Monitor ({secondary_monitor_name})"))
                 .size(16)
                 .style(card_title_text_style()),
             row![
@@ -609,10 +631,15 @@ impl DisplaySwitcher {
         .spacing(8);
 
         let primary_monitor_section = column![
-            text("Primary Monitor:").size(16).style(card_title_text_style()),
+            text("Primary Monitor:")
+                .size(16)
+                .style(card_title_text_style()),
             pick_list(
                 settings.available_monitors.as_slice(),
-                settings.available_monitors.iter().find(|&m| m == &settings.primary_monitor),
+                settings
+                    .available_monitors
+                    .iter()
+                    .find(|&m| m == &settings.primary_monitor),
                 |monitor| Message::UpdatePrimaryMonitor(monitor.clone())
             )
             .width(200)
@@ -677,7 +704,7 @@ impl DisplaySwitcher {
             .spacing(8)
             .padding(24)
             .width(Length::Fill)
-            .align_x(alignment::Horizontal::Center)
+            .align_x(alignment::Horizontal::Center),
         )
         .width(500)
         .style(main_container_style())
@@ -935,6 +962,3 @@ fn cancel_text_style() -> impl Fn(&Theme) -> iced::widget::text::Style {
         color: Some(Color::from_rgb(0.9, 0.9, 0.9)),
     }
 }
-
-
-
