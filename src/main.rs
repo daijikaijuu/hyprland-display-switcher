@@ -182,18 +182,18 @@ fn apply_display_mode(mode: &DisplayMode, monitors: &[Monitor]) -> Result<(), St
             // Use Full HD resolution for secondary monitor and calculate position
             let secondary_width = 1920;
             let secondary_height = 1080;
-            let secondary_pos_x = -(secondary_width);
+            let secondary_pos_x = secondary_width;
             
-            // Position primary monitor at 0,0
+            // Configure primary monitor at 0,0 with auto resolution
             Dispatch::call(DispatchType::Exec(&format!(
-                "hyprctl keyword monitor {},0x0,auto",
+                "hyprctl keyword monitor {},auto,0x0,auto",
                 primary
             )))
             .map_err(|e| e.to_string())?;
 
-            // Position secondary monitor to the left with Full HD resolution
+            // Configure secondary monitor to the left with Full HD resolution and scale 1.0
             Dispatch::call(DispatchType::Exec(&format!(
-                "hyprctl keyword monitor {},{}x{},{}x0,auto",
+                "hyprctl keyword monitor {},{}x{},{}x0,1.0",
                 secondary, secondary_width, secondary_height, secondary_pos_x
             )))
             .map_err(|e| e.to_string())?;
