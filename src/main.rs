@@ -5,7 +5,7 @@ use hyprland::data::{Monitor, Monitors};
 use hyprland::dispatch::{Dispatch, DispatchType};
 use hyprland::shared::HyprData;
 use iced::widget::{button, column, container, text};
-use iced::{Element, Length, Task, Theme, alignment};
+use iced::{Element, Length, Task, Theme, alignment, event, Event};
 use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};
 use iced_layershell::settings::{LayerShellSettings, Settings};
 use iced_layershell::{Application, to_layer_message};
@@ -41,6 +41,7 @@ enum Message {
     MonitorsLoaded(Result<Vec<Monitor>, String>),
     SetMode(DisplayMode),
     Cancel,
+    IcedEvent(Event),
 }
 
 #[derive(Debug, Clone)]
@@ -103,6 +104,10 @@ impl Application for DisplaySwitcher {
             Message::Cancel => {
                 process::exit(0);
             }
+            Message::IcedEvent(_event) => {
+                // Handle iced events - this enables proper cursor handling
+                Task::none()
+            }
             _ => Task::none(),
         }
     }
@@ -126,18 +131,23 @@ impl Application for DisplaySwitcher {
                 let title = text("Display mode").size(24);
                 let pc_screen_only = button("PC screen only")
                     .width(Length::Fill)
+                    .style(button::primary)
                     .on_press(Message::SetMode(DisplayMode::MainScreenOnly));
                 let duplicate = button("Duplicate")
                     .width(Length::Fill)
+                    .style(button::primary)
                     .on_press(Message::SetMode(DisplayMode::Mirror));
                 let extend = button("Extend")
                     .width(Length::Fill)
+                    .style(button::primary)
                     .on_press(Message::SetMode(DisplayMode::Extend));
                 let second_screen_only = button("Second screen only")
                     .width(Length::Fill)
+                    .style(button::primary)
                     .on_press(Message::SetMode(DisplayMode::SecondScreenOnly));
                 let cancel = button("Cancel")
                     .width(Length::Fill)
+                    .style(button::secondary)
                     .on_press(Message::Cancel);
 
                 let monitor_info = text(format!("Detected {} monitors", monitors.len())).size(16);
@@ -167,6 +177,10 @@ impl Application for DisplaySwitcher {
 
     fn theme(&self) -> Theme {
         Theme::Dark
+    }
+
+    fn subscription(&self) -> iced::Subscription<Message> {
+        event::listen().map(Message::IcedEvent)
     }
 
     fn style(&self, theme: &Self::Theme) -> iced_layershell::Appearance {
