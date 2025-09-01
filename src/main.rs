@@ -4,8 +4,8 @@ use anyhow::Result;
 use hyprland::data::{Monitor, Monitors};
 use hyprland::dispatch::{Dispatch, DispatchType};
 use hyprland::shared::HyprData;
-use iced::widget::{button, column, container, text};
-use iced::{Element, Length, Task, Theme, alignment, event, Event};
+use iced::widget::{button, column, container, text, row, Space};
+use iced::{Element, Length, Task, Theme, alignment, event, Event, Padding, Color, Border, Background, Shadow, Vector};
 use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};
 use iced_layershell::settings::{LayerShellSettings, Settings};
 use iced_layershell::{Application, to_layer_message};
@@ -13,9 +13,9 @@ use iced_layershell::{Application, to_layer_message};
 fn main() -> Result<(), iced_layershell::Error> {
     DisplaySwitcher::run(Settings {
         layer_settings: LayerShellSettings {
-            size: Some((400, 0)),
-            exclusive_zone: -1,
-            anchor: Anchor::Top | Anchor::Bottom | Anchor::Left | Anchor::Right,
+            size: Some((500, 700)),
+            exclusive_zone: 0,
+            anchor: Anchor::empty(),
             layer: Layer::Overlay,
             keyboard_interactivity: KeyboardInteractivity::Exclusive,
             ..Default::default()
@@ -114,62 +114,93 @@ impl Application for DisplaySwitcher {
 
     fn view(&self) -> Element<'_, Message> {
         match &self.state {
-            State::Loading => container(text("Loading display information...").size(30))
+            State::Loading => container(text("Loading display information...").size(20))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .align_x(alignment::Horizontal::Center)
                 .align_y(alignment::Vertical::Center)
+                .style(container_style())
                 .into(),
-            State::Error { message } => container(text(format!("Error {}", message)).size(20))
+            State::Error { message } => container(text(format!("Error: {}", message)).size(16))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .align_x(alignment::Horizontal::Center)
                 .align_y(alignment::Vertical::Center)
+                .style(container_style())
                 .into(),
 
             State::Loaded { monitors } => {
-                let title = text("Display mode").size(24);
-                let pc_screen_only = button("PC screen only")
-                    .width(Length::Fill)
-                    .style(button::primary)
-                    .on_press(Message::SetMode(DisplayMode::MainScreenOnly));
-                let duplicate = button("Duplicate")
-                    .width(Length::Fill)
-                    .style(button::primary)
-                    .on_press(Message::SetMode(DisplayMode::Mirror));
-                let extend = button("Extend")
-                    .width(Length::Fill)
-                    .style(button::primary)
-                    .on_press(Message::SetMode(DisplayMode::Extend));
-                let second_screen_only = button("Second screen only")
-                    .width(Length::Fill)
-                    .style(button::primary)
-                    .on_press(Message::SetMode(DisplayMode::SecondScreenOnly));
-                let cancel = button("Cancel")
-                    .width(Length::Fill)
-                    .style(button::secondary)
-                    .on_press(Message::Cancel);
+                let title = text("Choose display mode")
+                    .size(28)
+                    .style(title_text_style());
+                
+                let subtitle = text(format!("{} display{} detected", monitors.len(), if monitors.len() == 1 { "" } else { "s" }))
+                    .size(14)
+                    .style(subtitle_text_style());
 
-                let monitor_info = text(format!("Detected {} monitors", monitors.len())).size(16);
+                let pc_screen_card = create_display_card(
+                    "💻".to_string(), 
+                    "PC screen only".to_string(), 
+                    "Use only your main display".to_string(),
+                    Message::SetMode(DisplayMode::MainScreenOnly)
+                );
+                
+                let duplicate_card = create_display_card(
+                    "📱".to_string(), 
+                    "Duplicate displays".to_string(), 
+                    "Show the same content on all displays".to_string(),
+                    Message::SetMode(DisplayMode::Mirror)
+                );
+                
+                let extend_card = create_display_card(
+                    "🖥️".to_string(), 
+                    "Extend displays".to_string(), 
+                    "Use displays as one continuous workspace".to_string(),
+                    Message::SetMode(DisplayMode::Extend)
+                );
+                
+                let second_screen_card = create_display_card(
+                    "📺".to_string(), 
+                    "Second screen only".to_string(), 
+                    "Use only your external display".to_string(),
+                    Message::SetMode(DisplayMode::SecondScreenOnly)
+                );
+
+                let cancel_button = button(
+                    container(
+                        text("Cancel")
+                            .size(16)
+                            .style(cancel_text_style())
+                    )
+                    .padding(Padding::from([12, 24]))
+                    .align_x(alignment::Horizontal::Center)
+                )
+                .width(Length::Fill)
+                .style(cancel_button_style())
+                .on_press(Message::Cancel);
 
                 container(
                     column![
                         title,
-                        monitor_info,
-                        pc_screen_only,
-                        duplicate,
-                        extend,
-                        second_screen_only,
-                        cancel
+                        subtitle,
+                        Space::with_height(20),
+                        pc_screen_card,
+                        duplicate_card,
+                        extend_card,
+                        second_screen_card,
+                        Space::with_height(20),
+                        cancel_button
                     ]
-                    .spacing(10)
-                    .padding(20)
-                    .width(Length::Fill),
+                    .spacing(16)
+                    .padding(32)
+                    .width(Length::Fill)
+                    .align_x(alignment::Horizontal::Center)
                 )
-                .width(Length::Fill)
-                .height(Length::Fill)
+                .width(480)
+                .style(main_container_style())
                 .align_x(alignment::Horizontal::Center)
-                .align_y(alignment::Vertical::Center)
+                .align_y(alignment::Vertical::Top)
+                .padding(Padding::from(20))
                 .into()
             }
         }
@@ -280,4 +311,150 @@ fn apply_display_mode(mode: &DisplayMode, monitors: &[Monitor]) -> Result<(), St
         }
     }
     Ok(())
+}
+
+fn create_display_card(icon: String, title: String, description: String, message: Message) -> Element<'static, Message> {
+    let card_content = container(
+        row![
+            container(text(icon).size(32))
+                .width(60)
+                .align_x(alignment::Horizontal::Center),
+            column![
+                text(title)
+                    .size(18)
+                    .style(card_title_text_style()),
+                text(description)
+                    .size(13)
+                    .style(card_description_text_style())
+            ]
+            .spacing(4)
+            .width(Length::Fill)
+        ]
+        .spacing(16)
+        .align_y(alignment::Vertical::Center)
+    )
+    .padding(Padding::from([16, 20]))
+    .width(Length::Fill);
+
+    button(card_content)
+        .width(Length::Fill)
+        .style(card_button_style())
+        .on_press(message)
+        .into()
+}
+
+fn main_container_style() -> impl Fn(&Theme) -> container::Style {
+    |_theme: &Theme| container::Style {
+        background: Some(Background::Color(Color::from_rgba(0.1, 0.1, 0.1, 0.95))),
+        border: Border {
+            radius: 16.into(),
+            width: 1.0,
+            color: Color::from_rgba(0.3, 0.3, 0.3, 0.5),
+        },
+        shadow: Shadow {
+            color: Color::from_rgba(0.0, 0.0, 0.0, 0.3),
+            offset: Vector::new(0.0, 8.0),
+            blur_radius: 24.0,
+        },
+        ..Default::default()
+    }
+}
+
+fn container_style() -> impl Fn(&Theme) -> container::Style {
+    |_theme: &Theme| container::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        ..Default::default()
+    }
+}
+
+fn card_button_style() -> impl Fn(&Theme, button::Status) -> button::Style {
+    |_theme: &Theme, status: button::Status| {
+        let background_color = match status {
+            button::Status::Hovered => Color::from_rgba(0.2, 0.4, 0.7, 0.8),
+            button::Status::Pressed => Color::from_rgba(0.15, 0.35, 0.65, 0.9),
+            _ => Color::from_rgba(0.15, 0.15, 0.15, 0.9),
+        };
+
+        let border_color = match status {
+            button::Status::Hovered => Color::from_rgba(0.3, 0.5, 0.8, 0.8),
+            button::Status::Pressed => Color::from_rgba(0.25, 0.45, 0.75, 0.9),
+            _ => Color::from_rgba(0.3, 0.3, 0.3, 0.6),
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            border: Border {
+                radius: 12.into(),
+                width: 1.0,
+                color: border_color,
+            },
+            shadow: Shadow {
+                color: Color::from_rgba(0.0, 0.0, 0.0, 0.2),
+                offset: Vector::new(0.0, 2.0),
+                blur_radius: 8.0,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+fn cancel_button_style() -> impl Fn(&Theme, button::Status) -> button::Style {
+    |_theme: &Theme, status: button::Status| {
+        let background_color = match status {
+            button::Status::Hovered => Color::from_rgba(0.7, 0.2, 0.2, 0.8),
+            button::Status::Pressed => Color::from_rgba(0.65, 0.15, 0.15, 0.9),
+            _ => Color::from_rgba(0.2, 0.2, 0.2, 0.8),
+        };
+
+        let border_color = match status {
+            button::Status::Hovered => Color::from_rgba(0.8, 0.3, 0.3, 0.8),
+            button::Status::Pressed => Color::from_rgba(0.75, 0.25, 0.25, 0.9),
+            _ => Color::from_rgba(0.4, 0.4, 0.4, 0.6),
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            border: Border {
+                radius: 8.into(),
+                width: 1.0,
+                color: border_color,
+            },
+            shadow: Shadow {
+                color: Color::from_rgba(0.0, 0.0, 0.0, 0.15),
+                offset: Vector::new(0.0, 1.0),
+                blur_radius: 4.0,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+fn title_text_style() -> impl Fn(&Theme) -> iced::widget::text::Style {
+    |_theme: &Theme| iced::widget::text::Style {
+        color: Some(Color::from_rgb(0.95, 0.95, 0.95)),
+    }
+}
+
+fn subtitle_text_style() -> impl Fn(&Theme) -> iced::widget::text::Style {
+    |_theme: &Theme| iced::widget::text::Style {
+        color: Some(Color::from_rgb(0.7, 0.7, 0.7)),
+    }
+}
+
+fn card_title_text_style() -> impl Fn(&Theme) -> iced::widget::text::Style {
+    |_theme: &Theme| iced::widget::text::Style {
+        color: Some(Color::from_rgb(0.9, 0.9, 0.9)),
+    }
+}
+
+fn card_description_text_style() -> impl Fn(&Theme) -> iced::widget::text::Style {
+    |_theme: &Theme| iced::widget::text::Style {
+        color: Some(Color::from_rgb(0.65, 0.65, 0.65)),
+    }
+}
+
+fn cancel_text_style() -> impl Fn(&Theme) -> iced::widget::text::Style {
+    |_theme: &Theme| iced::widget::text::Style {
+        color: Some(Color::from_rgb(0.9, 0.9, 0.9)),
+    }
 }
