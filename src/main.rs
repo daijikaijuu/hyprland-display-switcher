@@ -167,9 +167,17 @@ fn apply_display_mode(mode: &DisplayMode, monitors: &[Monitor]) -> Result<(), St
 
     match mode {
         DisplayMode::Mirror => {
-            // Use the Exec variant to run a hyprctl command
+            // First ensure both monitors are properly configured, then set mirror
+            // Configure primary monitor
             Dispatch::call(DispatchType::Exec(&format!(
-                "hyprctl keyword monitor {} mirror,{}",
+                "hyprctl keyword monitor \"{},1920x1080,0x0,1.0\"",
+                primary
+            )))
+            .map_err(|e| e.to_string())?;
+            
+            // Configure secondary monitor to mirror primary
+            Dispatch::call(DispatchType::Exec(&format!(
+                "hyprctl keyword monitor \"{},1920x1080,0x0,1.0,mirror,{}\"",
                 secondary, primary
             )))
             .map_err(|e| e.to_string())?;
