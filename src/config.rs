@@ -145,6 +145,16 @@ impl ConfigManager {
         Ok(())
     }
 
+    pub fn get_preferred_primary_monitor(&self, available_monitors: &[String]) -> Option<String> {
+        if let Some(last_config) = self.get_extend_configuration_for_monitors(available_monitors) {
+            if available_monitors.contains(&last_config.primary_monitor) {
+                return Some(last_config.primary_monitor.clone());
+            }
+        }
+        
+        None
+    }
+
     pub fn create_config_from_settings(
         primary_monitor: String,
         secondary_monitor: String,

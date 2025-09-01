@@ -1,15 +1,32 @@
-use crate::config::{ExtendConfiguration, ExtendLayout};
+use crate::config::{ConfigManager, ExtendConfiguration, ExtendLayout};
 use hyprland::data::Monitor;
 use hyprland::dispatch::{Dispatch, DispatchType};
 use std::process::Command;
 
-pub fn apply_mirror_mode(monitors: &[Monitor]) -> Result<(), String> {
+pub fn determine_primary_monitor<'a>(monitors: &'a [Monitor], config_manager: &ConfigManager) -> &'a Monitor {
+    let monitor_names: Vec<String> = monitors.iter().map(|m| m.name.clone()).collect();
+    
+    if let Some(preferred_primary) = config_manager.get_preferred_primary_monitor(&monitor_names) {
+        if let Some(monitor) = monitors.iter().find(|m| m.name == preferred_primary) {
+            return monitor;
+        }
+    }
+    
+    // Fallback: use focused monitor first, then first monitor
+    monitors.iter().find(|m| m.focused).unwrap_or(&monitors[0])
+}
+
+fn determine_secondary_monitor<'a>(monitors: &'a [Monitor], primary: &Monitor) -> Option<&'a Monitor> {
+    monitors.iter().find(|m| m.name != primary.name)
+}
+
+pub fn apply_mirror_mode(monitors: &[Monitor], config_manager: &crate::config::ConfigManager) -> Result<(), String> {
     if monitors.len() < 2 {
         return Ok(());
     }
 
-    let primary_mon = &monitors[0];
-    let secondary_mon = &monitors[1];
+    let primary_mon = determine_primary_monitor(monitors, config_manager);
+    let secondary_mon = monitors.iter().find(|m| m.name != primary_mon.name).ok_or("Secondary monitor not found")?;
 
     // Configure primary monitor
     Dispatch::call(DispatchType::Exec(&format!(
@@ -91,7 +108,7 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
 
     // Build commands
     let primary_command = format!(
-        "hyprctl keyword monitor {},{}{}",
+        "hyprctl keyword monitor \"{},{}{}\"",
         config.primary_monitor,
         if config.primary_resolution == "auto" {
             format!("auto,{primary_pos},1")
@@ -102,7 +119,7 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
     );
 
     let secondary_command = format!(
-        "hyprctl keyword monitor {},{},{},1{}",
+        "hyprctl keyword monitor \"{},{},{},1{}\"",
         config.secondary_monitor,
         config.secondary_resolution,
         secondary_pos,
@@ -114,12 +131,12 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
 
     // Disable both monitors first to reset their state
     Dispatch::call(DispatchType::Exec(&format!(
-        "hyprctl keyword monitor {},disable",
+        "hyprctl keyword monitor \"{},disable\"",
         config.primary_monitor
     )))
     .map_err(|e| e.to_string())?;
     Dispatch::call(DispatchType::Exec(&format!(
-        "hyprctl keyword monitor {},disable",
+        "hyprctl keyword monitor \"{},disable\"",
         config.secondary_monitor
     )))
     .map_err(|e| e.to_string())?;
@@ -134,27 +151,31 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
     Ok(())
 }
 
-pub fn apply_single_screen_mode(monitors: &[Monitor], primary_only: bool) -> Result<(), String> {
+pub fn apply_single_screen_mode(monitors: &[Monitor], primary_only: bool, config_manager: &ConfigManager) -> Result<(), String> {
     if monitors.len() < 2 {
         return Ok(());
     }
 
+    let primary_monitor = determine_primary_monitor(monitors, config_manager);
+    let secondary_monitor = determine_secondary_monitor(monitors, primary_monitor)
+        .ok_or("Secondary monitor not found")?;
+
     let (active_mon, inactive_mon) = if primary_only {
-        (&monitors[0], &monitors[1])
+        (primary_monitor, secondary_monitor)
     } else {
-        (&monitors[1], &monitors[0])
+        (secondary_monitor, primary_monitor)
     };
 
     // Enable active monitor with its native resolution
     Dispatch::call(DispatchType::Exec(&format!(
-        "hyprctl keyword monitor {},{}x{},0x0,{}",
+        "hyprctl keyword monitor \"{},{}x{},0x0,{}\"",
         active_mon.name, active_mon.width, active_mon.height, active_mon.scale
     )))
     .map_err(|e| e.to_string())?;
 
     // Disable inactive monitor
     Dispatch::call(DispatchType::Exec(&format!(
-        "hyprctl keyword monitor {} disable",
+        "hyprctl keyword monitor \"{},disable\"",
         inactive_mon.name
     )))
     .map_err(|e| e.to_string())?;
