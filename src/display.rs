@@ -3,30 +3,42 @@ use hyprland::data::Monitor;
 use hyprland::dispatch::{Dispatch, DispatchType};
 use std::process::Command;
 
-pub fn determine_primary_monitor<'a>(monitors: &'a [Monitor], config_manager: &ConfigManager) -> &'a Monitor {
+pub fn determine_primary_monitor<'a>(
+    monitors: &'a [Monitor],
+    config_manager: &ConfigManager,
+) -> &'a Monitor {
     let monitor_names: Vec<String> = monitors.iter().map(|m| m.name.clone()).collect();
-    
+
     if let Some(preferred_primary) = config_manager.get_preferred_primary_monitor(&monitor_names) {
         if let Some(monitor) = monitors.iter().find(|m| m.name == preferred_primary) {
             return monitor;
         }
     }
-    
+
     // Fallback: use focused monitor first, then first monitor
     monitors.iter().find(|m| m.focused).unwrap_or(&monitors[0])
 }
 
-fn determine_secondary_monitor<'a>(monitors: &'a [Monitor], primary: &Monitor) -> Option<&'a Monitor> {
+fn determine_secondary_monitor<'a>(
+    monitors: &'a [Monitor],
+    primary: &Monitor,
+) -> Option<&'a Monitor> {
     monitors.iter().find(|m| m.name != primary.name)
 }
 
-pub fn apply_mirror_mode(monitors: &[Monitor], config_manager: &crate::config::ConfigManager) -> Result<(), String> {
+pub fn apply_mirror_mode(
+    monitors: &[Monitor],
+    config_manager: &crate::config::ConfigManager,
+) -> Result<(), String> {
     if monitors.len() < 2 {
         return Ok(());
     }
 
     let primary_mon = determine_primary_monitor(monitors, config_manager);
-    let secondary_mon = monitors.iter().find(|m| m.name != primary_mon.name).ok_or("Secondary monitor not found")?;
+    let secondary_mon = monitors
+        .iter()
+        .find(|m| m.name != primary_mon.name)
+        .ok_or("Secondary monitor not found")?;
 
     // Configure primary monitor
     Dispatch::call(DispatchType::Exec(&format!(
@@ -120,10 +132,7 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
 
     let secondary_command = format!(
         "hyprctl keyword monitor \"{},{},{},1{}\"",
-        config.secondary_monitor,
-        config.secondary_resolution,
-        secondary_pos,
-        secondary_transform
+        config.secondary_monitor, config.secondary_resolution, secondary_pos, secondary_transform
     );
 
     eprintln!("Primary command: {primary_command}");
@@ -151,7 +160,11 @@ pub fn apply_extend_mode(monitors: &[Monitor], config: &ExtendConfiguration) -> 
     Ok(())
 }
 
-pub fn apply_single_screen_mode(monitors: &[Monitor], primary_only: bool, config_manager: &ConfigManager) -> Result<(), String> {
+pub fn apply_single_screen_mode(
+    monitors: &[Monitor],
+    primary_only: bool,
+    config_manager: &ConfigManager,
+) -> Result<(), String> {
     if monitors.len() < 2 {
         return Ok(());
     }

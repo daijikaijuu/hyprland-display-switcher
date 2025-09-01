@@ -1,8 +1,8 @@
+mod app;
 mod config;
 mod display;
 mod state;
 mod ui;
-mod app;
 
 use app::DisplaySwitcher;
 use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};

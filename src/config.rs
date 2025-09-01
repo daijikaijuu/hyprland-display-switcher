@@ -151,7 +151,7 @@ impl ConfigManager {
                 return Some(last_config.primary_monitor.clone());
             }
         }
-        
+
         None
     }
 
@@ -179,4 +179,3 @@ impl ConfigManager {
         }
     }
 }
-

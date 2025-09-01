@@ -89,15 +89,24 @@ impl Application for DisplaySwitcher {
                                 apply_extend_mode(monitors, saved_config)
                             } else if monitors.len() >= 2 {
                                 // Use the determined primary monitor instead of hardcoded array index
-                                let primary_monitor = crate::display::determine_primary_monitor(monitors, &self.config_manager);
-                                let secondary_monitor = monitors.iter().find(|m| m.name != primary_monitor.name).unwrap();
-                                
+                                let primary_monitor = crate::display::determine_primary_monitor(
+                                    monitors,
+                                    &self.config_manager,
+                                );
+                                let secondary_monitor = monitors
+                                    .iter()
+                                    .find(|m| m.name != primary_monitor.name)
+                                    .unwrap();
+
                                 let default_config = ConfigManager::create_config_from_settings(
                                     primary_monitor.name.clone(),
                                     secondary_monitor.name.clone(),
                                     format!("{}x{}", primary_monitor.width, primary_monitor.height),
                                     "normal".to_string(),
-                                    format!("{}x{}", secondary_monitor.width, secondary_monitor.height),
+                                    format!(
+                                        "{}x{}",
+                                        secondary_monitor.width, secondary_monitor.height
+                                    ),
                                     "normal".to_string(),
                                     ExtendLayout::LeftToRight,
                                 );
@@ -106,8 +115,12 @@ impl Application for DisplaySwitcher {
                                 Ok(())
                             }
                         }
-                        DisplayMode::MainScreenOnly => apply_single_screen_mode(monitors, true, &self.config_manager),
-                        DisplayMode::SecondScreenOnly => apply_single_screen_mode(monitors, false, &self.config_manager),
+                        DisplayMode::MainScreenOnly => {
+                            apply_single_screen_mode(monitors, true, &self.config_manager)
+                        }
+                        DisplayMode::SecondScreenOnly => {
+                            apply_single_screen_mode(monitors, false, &self.config_manager)
+                        }
                     };
 
                     if let Err(e) = result {
@@ -615,4 +628,3 @@ impl DisplaySwitcher {
         <DisplaySwitcher as Application>::run(settings)
     }
 }
-

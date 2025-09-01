@@ -1,9 +1,6 @@
 use crate::state::{DisplayMode, Message};
 use iced::widget::{button, column, container, row, text};
-use iced::{
-    Element, Length, Padding,
-    alignment,
-};
+use iced::{Element, Length, Padding, alignment};
 
 pub fn create_extend_card() -> Element<'static, Message> {
     let card_content = container(
@@ -54,7 +51,9 @@ pub fn create_display_card(
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
-                text(title).size(18).style(crate::ui::card_title_text_style()),
+                text(title)
+                    .size(18)
+                    .style(crate::ui::card_title_text_style()),
                 text(description)
                     .size(13)
                     .style(crate::ui::card_description_text_style())

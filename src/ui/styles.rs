@@ -1,7 +1,5 @@
 use iced::widget::{button, container};
-use iced::{
-    Background, Border, Color, Theme, Vector, Shadow,
-};
+use iced::{Background, Border, Color, Shadow, Theme, Vector};
 
 pub fn main_container_style() -> impl Fn(&Theme) -> container::Style {
     |_theme: &Theme| container::Style {
