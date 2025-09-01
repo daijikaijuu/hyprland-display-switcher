@@ -13,7 +13,7 @@ use iced_layershell::{Application, to_layer_message};
 fn main() -> Result<(), iced_layershell::Error> {
     DisplaySwitcher::run(Settings {
         layer_settings: LayerShellSettings {
-            size: Some((500, 700)),
+            size: Some((500, 800)),
             exclusive_zone: 0,
             anchor: Anchor::empty(),
             layer: Layer::Overlay,
@@ -183,24 +183,24 @@ impl Application for DisplaySwitcher {
                     column![
                         title,
                         subtitle,
-                        Space::with_height(20),
+                        Space::with_height(16),
                         pc_screen_card,
                         duplicate_card,
                         extend_card,
                         second_screen_card,
-                        Space::with_height(20),
+                        Space::with_height(16),
                         cancel_button
                     ]
-                    .spacing(16)
-                    .padding(32)
+                    .spacing(12)
+                    .padding(24)
                     .width(Length::Fill)
                     .align_x(alignment::Horizontal::Center)
                 )
                 .width(480)
                 .style(main_container_style())
                 .align_x(alignment::Horizontal::Center)
-                .align_y(alignment::Vertical::Top)
-                .padding(Padding::from(20))
+                .align_y(alignment::Vertical::Center)
+                .padding(Padding::from(16))
                 .into()
             }
         }
