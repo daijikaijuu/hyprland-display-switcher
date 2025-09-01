@@ -6,16 +6,22 @@ use hyprland::dispatch::{Dispatch, DispatchType};
 use hyprland::shared::HyprData;
 use iced::widget::{button, column, container, text};
 use iced::{Element, Length, Task, Theme, alignment};
+use iced_layershell::reexport::{Anchor, KeyboardInteractivity, Layer};
+use iced_layershell::settings::{LayerShellSettings, Settings};
+use iced_layershell::{Application, to_layer_message};
 
-fn main() -> iced::Result {
-    iced::application(
-        "Display Switcher",
-        DisplaySwitcher::update,
-        DisplaySwitcher::view,
-    )
-    .subscription(DisplaySwitcher::subscription)
-    .theme(|_| Theme::Dark)
-    .run()
+fn main() -> Result<(), iced_layershell::Error> {
+    DisplaySwitcher::run(Settings {
+        layer_settings: LayerShellSettings {
+            size: Some((400, 0)),
+            exclusive_zone: -1,
+            anchor: Anchor::Top | Anchor::Bottom | Anchor::Left | Anchor::Right,
+            layer: Layer::Overlay,
+            keyboard_interactivity: KeyboardInteractivity::Exclusive,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
 }
 
 struct DisplaySwitcher {
@@ -28,6 +34,7 @@ enum State {
     Error { message: String },
 }
 
+#[to_layer_message]
 #[derive(Debug, Clone)]
 enum Message {
     LoadMonitors,
@@ -44,14 +51,28 @@ enum DisplayMode {
     SecondScreenOnly,
 }
 
-impl DisplaySwitcher {
-    fn new() -> Self {
-        Self {
-            state: State::Loading,
-        }
+impl Application for DisplaySwitcher {
+    type Message = Message;
+    type Flags = ();
+    type Theme = Theme;
+    type Executor = iced::executor::Default;
+
+    fn new(_flags: ()) -> (Self, Task<Message>) {
+        (Self::new(), Task::perform(
+            async {
+                Monitors::get()
+                    .map(|monitors| monitors.into_iter().collect::<Vec<Monitor>>())
+                    .map_err(|e| e.to_string())
+            },
+            Message::MonitorsLoaded,
+        ))
     }
 
-    fn update(state: &mut Self, message: Message) -> Task<Message> {
+    fn namespace(&self) -> String {
+        "display-switcher".to_string()
+    }
+
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::LoadMonitors => Task::perform(
                 async {
@@ -62,38 +83,32 @@ impl DisplaySwitcher {
                 Message::MonitorsLoaded,
             ),
             Message::MonitorsLoaded(Ok(monitors)) => {
-                state.state = State::Loaded { monitors };
+                self.state = State::Loaded { monitors };
                 Task::none()
             }
             Message::MonitorsLoaded(Err(err)) => {
-                state.state = State::Error {
+                self.state = State::Error {
                     message: err.to_string(),
                 };
                 Task::none()
             }
             Message::SetMode(mode) => {
-                if let State::Loaded { monitors } = &state.state
-                    && let Err(e) = apply_display_mode(&mode, monitors)
-                {
-                    eprintln!("Error applying display mode: {}", e);
+                if let State::Loaded { monitors } = &self.state {
+                    if let Err(e) = apply_display_mode(&mode, monitors) {
+                        eprintln!("Error applying display mode: {}", e);
+                    }
                 }
-                // Exit after applying the mode
                 process::exit(0);
             }
             Message::Cancel => {
-                // Exit the application
                 process::exit(0);
             }
+            _ => Task::none(),
         }
     }
 
-    fn subscription(_state: &Self) -> iced::Subscription<Message> {
-        iced::event::listen().map(|_| Message::LoadMonitors)
-    }
-
-    #[allow(mismatched_lifetime_syntaxes)]
-    fn view(state: &Self) -> Element<Message> {
-        match &state.state {
+    fn view(&self) -> Element<'_, Message> {
+        match &self.state {
             State::Loading => container(text("Loading display information...").size(30))
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -149,11 +164,24 @@ impl DisplaySwitcher {
             }
         }
     }
+
+    fn theme(&self) -> Theme {
+        Theme::Dark
+    }
+
+    fn style(&self, theme: &Self::Theme) -> iced_layershell::Appearance {
+        iced_layershell::Appearance {
+            background_color: iced::Color::TRANSPARENT,
+            text_color: theme.palette().text,
+        }
+    }
 }
 
-impl Default for DisplaySwitcher {
-    fn default() -> Self {
-        Self::new()
+impl DisplaySwitcher {
+    fn new() -> Self {
+        Self {
+            state: State::Loading,
+        }
     }
 }
 
@@ -174,7 +202,7 @@ fn apply_display_mode(mode: &DisplayMode, monitors: &[Monitor]) -> Result<(), St
                 primary
             )))
             .map_err(|e| e.to_string())?;
-            
+
             // Configure secondary monitor to mirror primary
             Dispatch::call(DispatchType::Exec(&format!(
                 "hyprctl keyword monitor \"{},1920x1080,0x0,1.0,mirror,{}\"",
@@ -184,14 +212,14 @@ fn apply_display_mode(mode: &DisplayMode, monitors: &[Monitor]) -> Result<(), St
         }
         DisplayMode::Extend => {
             // Configure monitors for extended display
-            let primary_mon = &monitors[0];
-            let secondary_mon = &monitors[1];
+            let _primary_mon = &monitors[0];
+            let _secondary_mon = &monitors[1];
 
             // Use Full HD resolution for secondary monitor and calculate position
             let secondary_width = 1920;
             let secondary_height = 1080;
             let secondary_pos_x = secondary_width;
-            
+
             // Configure primary monitor at 0,0 with auto resolution
             Dispatch::call(DispatchType::Exec(&format!(
                 "hyprctl keyword monitor {},auto,0x0,auto",
