@@ -3,27 +3,22 @@ use crate::display::{
     apply_extend_mode, apply_mirror_mode, apply_single_screen_mode, get_monitor_available_modes,
     reset_to_defaults,
 };
-use crate::state::{State, Message, DisplayMode, MonitorSettingsData};
+use crate::state::{DisplayMode, Message, MonitorSettingsData, State};
 use crate::ui::{self, create_display_card, create_extend_card};
 
-use std::process;
 use anyhow::Result;
 use hyprland::data::{Monitor, Monitors};
 use hyprland::shared::HyprData;
 use iced::widget::{Space, button, column, container, pick_list, row, text};
-use iced::{
-    Element, Event, Length, Padding, Task, Theme,
-    alignment, event, keyboard,
-};
-use iced_layershell::settings::Settings;
+use iced::{Element, Event, Length, Padding, Task, Theme, alignment, event, keyboard};
 use iced_layershell::Application;
+use iced_layershell::settings::Settings;
+use std::process;
 
 pub struct DisplaySwitcher {
     state: State,
     config_manager: ConfigManager,
 }
-
-
 
 impl Application for DisplaySwitcher {
     type Message = Message;
@@ -92,21 +87,19 @@ impl Application for DisplaySwitcher {
                                 .get_extend_configuration_for_monitors(&monitor_names)
                             {
                                 apply_extend_mode(monitors, saved_config)
+                            } else if monitors.len() >= 2 {
+                                let default_config = ConfigManager::create_config_from_settings(
+                                    monitors[0].name.clone(),
+                                    monitors[1].name.clone(),
+                                    format!("{}x{}", monitors[0].width, monitors[0].height),
+                                    "normal".to_string(),
+                                    format!("{}x{}", monitors[1].width, monitors[1].height),
+                                    "normal".to_string(),
+                                    ExtendLayout::LeftToRight,
+                                );
+                                apply_extend_mode(monitors, &default_config)
                             } else {
-                                if monitors.len() >= 2 {
-                                    let default_config = ConfigManager::create_config_from_settings(
-                                        monitors[0].name.clone(),
-                                        monitors[1].name.clone(),
-                                        format!("{}x{}", monitors[0].width, monitors[0].height),
-                                        "normal".to_string(),
-                                        format!("{}x{}", monitors[1].width, monitors[1].height),
-                                        "normal".to_string(),
-                                        ExtendLayout::LeftToRight,
-                                    );
-                                    apply_extend_mode(monitors, &default_config)
-                                } else {
-                                    Ok(())
-                                }
+                                Ok(())
                             }
                         }
                         DisplayMode::MainScreenOnly => apply_single_screen_mode(monitors, true),
@@ -618,3 +611,4 @@ impl DisplaySwitcher {
         <DisplaySwitcher as Application>::run(settings)
     }
 }
+
