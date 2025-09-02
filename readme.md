@@ -35,6 +35,7 @@ A modern GUI application for managing display configurations in Hyprland, built 
 git clone https://github.com/daijikaijuu/hyprland-display-switcher.git
 cd hyprland-display-switcher
 cargo build --release
+```
 
 ## ps
 This is ai slop mostly for personal use 
