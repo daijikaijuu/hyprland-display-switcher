@@ -1,11 +1,13 @@
 use crate::state::{DisplayMode, Message};
 use iced::widget::{button, column, container, row, text};
-use iced::{Element, Length, Padding, alignment};
+use iced::{alignment, Element, Font, Length, Padding};
+
+const EMOJI_FONT: Font = Font::with_name("Noto Color Emoji");
 
 pub fn create_extend_card() -> Element<'static, Message> {
     let card_content = container(
         row![
-            container(text("🖥️").size(32))
+            container(text("🖥️").size(32).font(EMOJI_FONT))
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
@@ -19,7 +21,7 @@ pub fn create_extend_card() -> Element<'static, Message> {
             .spacing(4)
             .width(Length::Fill),
             button(
-                container(text("⚙️").size(16))
+                container(text("⚙️").size(16).font(EMOJI_FONT))
                     .padding(Padding::from([4, 8]))
                     .align_x(alignment::Horizontal::Center)
             )
@@ -47,7 +49,7 @@ pub fn create_display_card(
 ) -> Element<'static, Message> {
     let card_content = container(
         row![
-            container(text(icon).size(32))
+            container(text(icon).size(32).font(EMOJI_FONT))
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
