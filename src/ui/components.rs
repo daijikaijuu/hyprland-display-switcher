@@ -30,13 +30,23 @@ fn create_emoji_text_dynamic(emoji: String, size: u16) -> iced::widget::Text<'st
 }
 
 pub fn create_extend_card() -> Element<'static, Message> {
+    create_extend_card_with_selection(false)
+}
+
+pub fn create_extend_card_with_selection(is_selected: bool) -> Element<'static, Message> {
+    let title_text = if is_selected {
+        "▶ Extend displays (3)"
+    } else {
+        "Extend displays (3)"
+    };
+
     let card_content = container(
         row![
             container(create_emoji_text("🖥️", 32))
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
-                text("Extend displays")
+                text(title_text)
                     .size(18)
                     .style(crate::ui::card_title_text_style()),
                 text("Use displays as one continuous workspace")
@@ -61,7 +71,7 @@ pub fn create_extend_card() -> Element<'static, Message> {
 
     button(card_content)
         .width(Length::Fill)
-        .style(crate::ui::card_button_style())
+        .style(crate::ui::card_button_style_with_selection(is_selected))
         .on_press(Message::SetMode(DisplayMode::Extend))
         .into()
 }
@@ -72,13 +82,29 @@ pub fn create_display_card(
     description: String,
     message: Message,
 ) -> Element<'static, Message> {
+    create_display_card_with_selection(icon, title, description, message, false)
+}
+
+pub fn create_display_card_with_selection(
+    icon: String,
+    title: String,
+    description: String,
+    message: Message,
+    is_selected: bool,
+) -> Element<'static, Message> {
+    let title_text = if is_selected {
+        format!("▶ {}", title)
+    } else {
+        title
+    };
+
     let card_content = container(
         row![
             container(create_emoji_text_dynamic(icon, 32))
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
-                text(title)
+                text(title_text)
                     .size(18)
                     .style(crate::ui::card_title_text_style()),
                 text(description)
@@ -96,7 +122,7 @@ pub fn create_display_card(
 
     button(card_content)
         .width(Length::Fill)
-        .style(crate::ui::card_button_style())
+        .style(crate::ui::card_button_style_with_selection(is_selected))
         .on_press(message)
         .into()
 }

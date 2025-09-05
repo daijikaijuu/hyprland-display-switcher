@@ -25,6 +25,161 @@ pub fn container_style() -> impl Fn(&Theme) -> container::Style {
     }
 }
 
+pub fn card_button_style_with_selection(
+    is_selected: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style {
+    move |_theme: &Theme, status: button::Status| {
+        let (background_color, border_color, border_width) = if is_selected {
+            let bg = match status {
+                button::Status::Hovered => Color::from_rgba(0.3, 0.6, 0.9, 0.9),
+                button::Status::Pressed => Color::from_rgba(0.25, 0.55, 0.85, 1.0),
+                _ => Color::from_rgba(0.2, 0.5, 0.8, 0.9),
+            };
+            let border = match status {
+                button::Status::Hovered => Color::from_rgba(0.4, 0.7, 1.0, 1.0),
+                button::Status::Pressed => Color::from_rgba(0.35, 0.65, 0.95, 1.0),
+                _ => Color::from_rgba(0.3, 0.6, 0.9, 1.0),
+            };
+            (bg, border, 2.0)
+        } else {
+            let bg = match status {
+                button::Status::Hovered => Color::from_rgba(0.2, 0.4, 0.7, 0.8),
+                button::Status::Pressed => Color::from_rgba(0.15, 0.35, 0.65, 0.9),
+                _ => Color::from_rgba(0.15, 0.15, 0.15, 0.9),
+            };
+            let border = match status {
+                button::Status::Hovered => Color::from_rgba(0.3, 0.5, 0.8, 0.8),
+                button::Status::Pressed => Color::from_rgba(0.25, 0.45, 0.75, 0.9),
+                _ => Color::from_rgba(0.3, 0.3, 0.3, 0.6),
+            };
+            (bg, border, 1.0)
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            border: Border {
+                radius: 12.into(),
+                width: border_width,
+                color: border_color,
+            },
+            shadow: Shadow {
+                color: Color::from_rgba(0.0, 0.0, 0.0, if is_selected { 0.3 } else { 0.2 }),
+                offset: Vector::new(0.0, if is_selected { 4.0 } else { 2.0 }),
+                blur_radius: if is_selected { 12.0 } else { 8.0 },
+            },
+            ..Default::default()
+        }
+    }
+}
+
+pub fn action_button_style_with_selection(
+    is_selected: bool,
+    button_type: ActionButtonType,
+) -> impl Fn(&Theme, button::Status) -> button::Style {
+    move |_theme: &Theme, status: button::Status| {
+        let (base_bg, base_border) = match button_type {
+            ActionButtonType::Cancel => (
+                Color::from_rgba(0.2, 0.2, 0.2, 0.8),
+                Color::from_rgba(0.4, 0.4, 0.4, 0.6),
+            ),
+            ActionButtonType::Reset => (
+                Color::from_rgba(0.3, 0.3, 0.2, 0.8),
+                Color::from_rgba(0.4, 0.4, 0.3, 0.6),
+            ),
+        };
+
+        let (background_color, border_color, border_width) = if is_selected {
+            let bg = match status {
+                button::Status::Hovered => Color::from_rgba(0.3, 0.6, 0.9, 0.9),
+                button::Status::Pressed => Color::from_rgba(0.25, 0.55, 0.85, 1.0),
+                _ => Color::from_rgba(0.2, 0.5, 0.8, 0.9),
+            };
+            let border = match status {
+                button::Status::Hovered => Color::from_rgba(0.4, 0.7, 1.0, 1.0),
+                button::Status::Pressed => Color::from_rgba(0.35, 0.65, 0.95, 1.0),
+                _ => Color::from_rgba(0.3, 0.6, 0.9, 1.0),
+            };
+            (bg, border, 2.0)
+        } else {
+            let bg = match status {
+                button::Status::Hovered => match button_type {
+                    ActionButtonType::Cancel => Color::from_rgba(0.7, 0.2, 0.2, 0.8),
+                    ActionButtonType::Reset => Color::from_rgba(0.6, 0.4, 0.2, 0.8),
+                },
+                button::Status::Pressed => match button_type {
+                    ActionButtonType::Cancel => Color::from_rgba(0.65, 0.15, 0.15, 0.9),
+                    ActionButtonType::Reset => Color::from_rgba(0.55, 0.35, 0.15, 0.9),
+                },
+                _ => base_bg,
+            };
+            let border = match status {
+                button::Status::Hovered => match button_type {
+                    ActionButtonType::Cancel => Color::from_rgba(0.8, 0.3, 0.3, 0.8),
+                    ActionButtonType::Reset => Color::from_rgba(0.7, 0.5, 0.3, 0.8),
+                },
+                button::Status::Pressed => match button_type {
+                    ActionButtonType::Cancel => Color::from_rgba(0.75, 0.25, 0.25, 0.9),
+                    ActionButtonType::Reset => Color::from_rgba(0.65, 0.45, 0.25, 0.9),
+                },
+                _ => base_border,
+            };
+            (bg, border, 1.0)
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            border: Border {
+                radius: 8.into(),
+                width: border_width,
+                color: border_color,
+            },
+            shadow: Shadow {
+                color: Color::from_rgba(0.0, 0.0, 0.0, if is_selected { 0.2 } else { 0.15 }),
+                offset: Vector::new(0.0, if is_selected { 2.0 } else { 1.0 }),
+                blur_radius: if is_selected { 6.0 } else { 4.0 },
+            },
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ActionButtonType {
+    Cancel,
+    Reset,
+}
+
+pub fn selected_card_button_style() -> impl Fn(&Theme, button::Status) -> button::Style {
+    |_theme: &Theme, status: button::Status| {
+        let background_color = match status {
+            button::Status::Hovered => Color::from_rgba(0.3, 0.6, 0.9, 0.9),
+            button::Status::Pressed => Color::from_rgba(0.25, 0.55, 0.85, 1.0),
+            _ => Color::from_rgba(0.2, 0.5, 0.8, 0.9),
+        };
+
+        let border_color = match status {
+            button::Status::Hovered => Color::from_rgba(0.4, 0.7, 1.0, 1.0),
+            button::Status::Pressed => Color::from_rgba(0.35, 0.65, 0.95, 1.0),
+            _ => Color::from_rgba(0.3, 0.6, 0.9, 1.0),
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            border: Border {
+                radius: 12.into(),
+                width: 2.0,
+                color: border_color,
+            },
+            shadow: Shadow {
+                color: Color::from_rgba(0.0, 0.0, 0.0, 0.3),
+                offset: Vector::new(0.0, 4.0),
+                blur_radius: 12.0,
+            },
+            ..Default::default()
+        }
+    }
+}
+
 pub fn card_button_style() -> impl Fn(&Theme, button::Status) -> button::Style {
     |_theme: &Theme, status: button::Status| {
         let background_color = match status {

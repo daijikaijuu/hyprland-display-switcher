@@ -8,10 +8,12 @@ pub enum State {
     Loading,
     Loaded {
         monitors: Vec<Monitor>,
+        selected_index: usize,
     },
     MonitorSettings {
         monitors: Vec<Monitor>,
         settings: MonitorSettingsData,
+        selected_field: usize,
     },
     Error {
         message: String,
@@ -36,6 +38,12 @@ pub enum Message {
     Cancel,
     ResetToDefaults,
     IcedEvent(Event),
+    // Navigation messages
+    NavigateUp,
+    NavigateDown,
+    NavigateLeft,
+    NavigateRight,
+    SelectCurrent,
 }
 
 #[derive(Debug, Clone)]

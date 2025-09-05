@@ -4,7 +4,7 @@ use crate::display::{
     reset_to_defaults,
 };
 use crate::state::{DisplayMode, Message, MonitorSettingsData, State};
-use crate::ui::{self, create_display_card, create_extend_card};
+use crate::ui::{self, create_display_card_with_selection, create_extend_card_with_selection};
 
 use anyhow::Result;
 use hyprland::data::{Monitor, Monitors};
@@ -66,7 +66,10 @@ impl Application for DisplaySwitcher {
                 Message::MonitorsLoaded,
             ),
             Message::MonitorsLoaded(Ok(monitors)) => {
-                self.state = State::Loaded { monitors };
+                self.state = State::Loaded { 
+                    monitors,
+                    selected_index: 0,
+                };
                 Task::none()
             }
             Message::MonitorsLoaded(Err(err)) => {
@@ -76,7 +79,7 @@ impl Application for DisplaySwitcher {
                 Task::none()
             }
             Message::SetMode(mode) => {
-                if let State::Loaded { monitors } = &self.state {
+                if let State::Loaded { monitors, .. } = &self.state {
                     let result = match mode {
                         DisplayMode::Mirror => apply_mirror_mode(monitors, &self.config_manager),
                         DisplayMode::Extend => {
@@ -130,7 +133,7 @@ impl Application for DisplaySwitcher {
                 process::exit(0);
             }
             Message::OpenExtendSettings => {
-                if let State::Loaded { monitors } = &self.state {
+                if let State::Loaded { monitors, .. } = &self.state {
                     if monitors.len() < 2 {
                         return Task::none();
                     }
@@ -192,6 +195,7 @@ impl Application for DisplaySwitcher {
                     self.state = State::MonitorSettings {
                         monitors: monitors.clone(),
                         settings,
+                        selected_field: 0,
                     };
                 }
                 Task::none()
@@ -200,6 +204,7 @@ impl Application for DisplaySwitcher {
                 if let State::MonitorSettings {
                     monitors: _,
                     settings,
+                    ..
                 } = &mut self.state
                 {
                     settings.primary_resolution = resolution;
@@ -210,6 +215,7 @@ impl Application for DisplaySwitcher {
                 if let State::MonitorSettings {
                     monitors: _,
                     settings,
+                    ..
                 } = &mut self.state
                 {
                     settings.primary_rotation = rotation;
@@ -220,6 +226,7 @@ impl Application for DisplaySwitcher {
                 if let State::MonitorSettings {
                     monitors: _,
                     settings,
+                    ..
                 } = &mut self.state
                 {
                     settings.secondary_resolution = resolution;
@@ -230,6 +237,7 @@ impl Application for DisplaySwitcher {
                 if let State::MonitorSettings {
                     monitors: _,
                     settings,
+                    ..
                 } = &mut self.state
                 {
                     settings.secondary_rotation = rotation;
@@ -240,6 +248,7 @@ impl Application for DisplaySwitcher {
                 if let State::MonitorSettings {
                     monitors: _,
                     settings,
+                    ..
                 } = &mut self.state
                 {
                     settings.layout = layout;
@@ -247,7 +256,7 @@ impl Application for DisplaySwitcher {
                 Task::none()
             }
             Message::UpdatePrimaryMonitor(monitor_name) => {
-                if let State::MonitorSettings { monitors, settings } = &mut self.state {
+                if let State::MonitorSettings { monitors, settings, .. } = &mut self.state {
                     settings.primary_monitor = monitor_name.clone();
 
                     let primary_modes = get_monitor_available_modes(&monitor_name);
@@ -272,7 +281,7 @@ impl Application for DisplaySwitcher {
                 Task::none()
             }
             Message::ApplyExtendSettings => {
-                if let State::MonitorSettings { monitors, settings } = &mut self.state {
+                if let State::MonitorSettings { monitors, settings, .. } = &mut self.state {
                     let secondary_monitor = monitors
                         .iter()
                         .find(|m| m.name != settings.primary_monitor)
@@ -306,6 +315,7 @@ impl Application for DisplaySwitcher {
                 if let State::MonitorSettings { monitors, .. } = &self.state {
                     self.state = State::Loaded {
                         monitors: monitors.clone(),
+                        selected_index: 0,
                     };
                 }
                 Task::none()
@@ -324,6 +334,174 @@ impl Application for DisplaySwitcher {
                 ..
             })) => {
                 process::exit(0);
+            }
+            Message::IcedEvent(Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Character(ref c),
+                ..
+            })) => {
+                match c.as_str() {
+                    "1" => {
+                        // PC screen only
+                        if let State::Loaded { monitors, .. } = &self.state {
+                            let result = apply_single_screen_mode(monitors, true, &self.config_manager);
+                            if let Err(e) = result {
+                                eprintln!("Error applying display mode: {e}");
+                            }
+                        }
+                        process::exit(0);
+                    }
+                    "2" => {
+                        // Duplicate displays
+                        if let State::Loaded { monitors, .. } = &self.state {
+                            let result = apply_mirror_mode(monitors, &self.config_manager);
+                            if let Err(e) = result {
+                                eprintln!("Error applying display mode: {e}");
+                            }
+                        }
+                        process::exit(0);
+                    }
+                    "3" => {
+                        // Extend displays
+                        if let State::Loaded { monitors, .. } = &self.state {
+                            let monitor_names: Vec<String> =
+                                monitors.iter().map(|m| m.name.clone()).collect();
+                            let result = if let Some(saved_config) = self
+                                .config_manager
+                                .get_extend_configuration_for_monitors(&monitor_names)
+                            {
+                                apply_extend_mode(monitors, saved_config)
+                            } else if monitors.len() >= 2 {
+                                let primary_monitor = crate::display::determine_primary_monitor(
+                                    monitors,
+                                    &self.config_manager,
+                                );
+                                let secondary_monitor = monitors
+                                    .iter()
+                                    .find(|m| m.name != primary_monitor.name)
+                                    .unwrap();
+
+                                let default_config = ConfigManager::create_config_from_settings(
+                                    primary_monitor.name.clone(),
+                                    secondary_monitor.name.clone(),
+                                    format!("{}x{}", primary_monitor.width, primary_monitor.height),
+                                    "normal".to_string(),
+                                    format!(
+                                        "{}x{}",
+                                        secondary_monitor.width, secondary_monitor.height
+                                    ),
+                                    "normal".to_string(),
+                                    ExtendLayout::LeftToRight,
+                                );
+                                apply_extend_mode(monitors, &default_config)
+                            } else {
+                                Ok(())
+                            };
+                            if let Err(e) = result {
+                                eprintln!("Error applying display mode: {e}");
+                            }
+                        }
+                        process::exit(0);
+                    }
+                    "4" => {
+                        // Second screen only
+                        if let State::Loaded { monitors, .. } = &self.state {
+                            let result = apply_single_screen_mode(monitors, false, &self.config_manager);
+                            if let Err(e) = result {
+                                eprintln!("Error applying display mode: {e}");
+                            }
+                        }
+                        process::exit(0);
+                    }
+                    "s" => {
+                        // Settings for extend mode
+                        self.update(Message::OpenExtendSettings)
+                    }
+                    "r" => {
+                        // Reset to defaults
+                        if let Err(e) = reset_to_defaults() {
+                            eprintln!("Error resetting to defaults: {e}");
+                        }
+                        process::exit(0);
+                    }
+                    "q" => {
+                        // Quit
+                        process::exit(0);
+                    }
+                    _ => Task::none(),
+                }
+            }
+            Message::IcedEvent(Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(key),
+                ..
+            })) => {
+                match key {
+                    keyboard::key::Named::ArrowUp => self.update(Message::NavigateUp),
+                    keyboard::key::Named::ArrowDown => self.update(Message::NavigateDown),
+                    keyboard::key::Named::ArrowLeft => self.update(Message::NavigateLeft),
+                    keyboard::key::Named::ArrowRight => self.update(Message::NavigateRight),
+                    keyboard::key::Named::Enter => self.update(Message::SelectCurrent),
+                    keyboard::key::Named::Space => self.update(Message::SelectCurrent),
+                    _ => Task::none(),
+                }
+            }
+            Message::NavigateUp => {
+                match &mut self.state {
+                    State::Loaded { selected_index, .. } => {
+                        *selected_index = selected_index.saturating_sub(1);
+                    }
+                    State::MonitorSettings { selected_field, .. } => {
+                        *selected_field = selected_field.saturating_sub(1);
+                    }
+                    _ => {}
+                }
+                Task::none()
+            }
+            Message::NavigateDown => {
+                match &mut self.state {
+                    State::Loaded { selected_index, .. } => {
+                        *selected_index = (*selected_index + 1).min(5); // 4 options + 2 buttons
+                    }
+                    State::MonitorSettings { selected_field, .. } => {
+                        *selected_field = (*selected_field + 1).min(6); // Number of settings fields
+                    }
+                    _ => {}
+                }
+                Task::none()
+            }
+            Message::NavigateLeft | Message::NavigateRight => {
+                // For future horizontal navigation if needed
+                Task::none()
+            }
+            Message::SelectCurrent => {
+                match &self.state {
+                    State::Loaded { selected_index, monitors, .. } => {
+                        match *selected_index {
+                            0 => self.update(Message::SetMode(DisplayMode::MainScreenOnly)),
+                            1 => self.update(Message::SetMode(DisplayMode::Mirror)),
+                            2 => {
+                                if monitors.len() >= 2 {
+                                    self.update(Message::OpenExtendSettings)
+                                } else {
+                                    self.update(Message::SetMode(DisplayMode::Extend))
+                                }
+                            }
+                            3 => self.update(Message::SetMode(DisplayMode::SecondScreenOnly)),
+                            4 => self.update(Message::Cancel),
+                            5 => self.update(Message::ResetToDefaults),
+                            _ => Task::none(),
+                        }
+                    }
+                    State::MonitorSettings { selected_field, .. } => {
+                        match *selected_field {
+                            0..=5 => Task::none(), // Field navigation handled by UI
+                            6 => self.update(Message::BackToMain),
+                            7 => self.update(Message::ResetToDefaults),
+                            8 => self.update(Message::ApplyExtendSettings),
+                            _ => Task::none(),
+                        }
+                    }
+                    _ => Task::none(),
+                }
             }
             _ => Task::none(),
         }
@@ -346,63 +524,73 @@ impl Application for DisplaySwitcher {
                 .style(ui::container_style())
                 .into(),
 
-            State::MonitorSettings { monitors, settings } => {
+            State::MonitorSettings { monitors, settings, .. } => {
                 self.create_monitor_settings_view(monitors, settings)
             }
 
-            State::Loaded { monitors } => {
+            State::Loaded { monitors, selected_index } => {
                 let title = text("Choose display mode")
                     .size(28)
                     .style(ui::title_text_style());
 
                 let subtitle = text(format!(
-                    "{} display{} detected",
+                    "{} display{} detected • Use numbers 1-4, arrows, Enter/Space, or Esc",
                     monitors.len(),
                     if monitors.len() == 1 { "" } else { "s" }
                 ))
                 .size(14)
                 .style(ui::subtitle_text_style());
 
-                let pc_screen_card = create_display_card(
+                let pc_screen_card = create_display_card_with_selection(
                     "💻".to_string(),
-                    "PC screen only".to_string(),
+                    "PC screen only (1)".to_string(),
                     "Use only your main display".to_string(),
                     Message::SetMode(DisplayMode::MainScreenOnly),
+                    *selected_index == 0,
                 );
 
-                let duplicate_card = create_display_card(
+                let duplicate_card = create_display_card_with_selection(
                     "📱".to_string(),
-                    "Duplicate displays".to_string(),
+                    "Duplicate displays (2)".to_string(),
                     "Show the same content on all displays".to_string(),
                     Message::SetMode(DisplayMode::Mirror),
+                    *selected_index == 1,
                 );
 
-                let extend_card = create_extend_card();
+                let extend_card = create_extend_card_with_selection(*selected_index == 2);
 
-                let second_screen_card = create_display_card(
+                let second_screen_card = create_display_card_with_selection(
                     "📺".to_string(),
-                    "Second screen only".to_string(),
+                    "Second screen only (4)".to_string(),
                     "Use only your external display".to_string(),
                     Message::SetMode(DisplayMode::SecondScreenOnly),
+                    *selected_index == 3,
                 );
 
+                let cancel_text = if *selected_index == 4 { "▶ Cancel (Q)" } else { "Cancel (Q)" };
+                let reset_text = if *selected_index == 5 { "▶ Reset (R)" } else { "Reset (R)" };
+
                 let cancel_button = button(
-                    container(text("Cancel").size(16).style(ui::cancel_text_style()))
+                    container(text(cancel_text).size(16).style(ui::cancel_text_style()))
                         .padding(Padding::from([12, 24]))
                         .align_x(alignment::Horizontal::Center),
                 )
                 .width(Length::Fill)
-                .style(ui::cancel_button_style())
+                .style(ui::action_button_style_with_selection(*selected_index == 4, ui::ActionButtonType::Cancel))
                 .on_press(Message::Cancel);
 
                 let reset_button = button(
-                    container(text("Reset").size(16).style(ui::cancel_text_style()))
+                    container(text(reset_text).size(16).style(ui::cancel_text_style()))
                         .padding(Padding::from([12, 24]))
                         .align_x(alignment::Horizontal::Center),
                 )
                 .width(Length::Fill)
-                .style(ui::reset_button_style())
+                .style(ui::action_button_style_with_selection(*selected_index == 5, ui::ActionButtonType::Reset))
                 .on_press(Message::ResetToDefaults);
+
+                let keyboard_help = text("Keyboard: 1-4 (quick select) • ↑↓ (navigate) • Enter/Space (select) • S (settings) • R (reset) • Q/Esc (quit)")
+                    .size(11)
+                    .style(ui::subtitle_text_style());
 
                 container(
                     column![
@@ -414,7 +602,9 @@ impl Application for DisplaySwitcher {
                         extend_card,
                         second_screen_card,
                         Space::with_height(16),
-                        row![cancel_button, reset_button].spacing(12)
+                        row![cancel_button, reset_button].spacing(12),
+                        Space::with_height(8),
+                        keyboard_help
                     ]
                     .spacing(12)
                     .padding(24)
