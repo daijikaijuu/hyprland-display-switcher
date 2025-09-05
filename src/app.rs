@@ -10,12 +10,10 @@ use anyhow::Result;
 use hyprland::data::{Monitor, Monitors};
 use hyprland::shared::HyprData;
 use iced::widget::{Space, button, column, container, pick_list, row, text};
-use iced::{Element, Event, Font, Length, Padding, Task, Theme, alignment, event, keyboard};
+use iced::{Element, Event, Length, Padding, Task, Theme, alignment, event, keyboard};
 use iced_layershell::Application;
 use iced_layershell::settings::Settings;
 use std::process;
-
-const EMOJI_FONT: Font = Font::with_name("Noto Color Emoji");
 
 pub struct DisplaySwitcher {
     state: State,

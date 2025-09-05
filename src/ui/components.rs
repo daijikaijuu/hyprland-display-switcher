@@ -2,12 +2,37 @@ use crate::state::{DisplayMode, Message};
 use iced::widget::{button, column, container, row, text};
 use iced::{alignment, Element, Font, Length, Padding};
 
-const EMOJI_FONT: Font = Font::with_name("Noto Color Emoji");
+// Font fallback system for emoji display
+const EMOJI_FONTS: [Font; 4] = [
+    Font::with_name("Noto Color Emoji"),
+    Font::with_name("FiraCode Nerd Font"),
+    Font::with_name("FiraCode Nerd Font Mono"),
+    Font::with_name("Segoe UI Emoji"),
+];
+
+// Emoji mappings for better font compatibility
+fn get_best_font_for_emoji(emoji: &str) -> Font {
+    match emoji {
+        "⚙️" | "🔧" | "🛠️" => EMOJI_FONTS[1], // Use Nerd Font for technical symbols
+        "🖥️" | "💻" | "📱" | "📺" => EMOJI_FONTS[0], // Use Noto Color Emoji for devices
+        _ => EMOJI_FONTS[0],                  // Default to Noto Color Emoji
+    }
+}
+
+fn create_emoji_text(emoji: &'static str, size: u16) -> iced::widget::Text<'static> {
+    let best_font = get_best_font_for_emoji(emoji);
+    text(emoji).size(size).font(best_font)
+}
+
+fn create_emoji_text_dynamic(emoji: String, size: u16) -> iced::widget::Text<'static> {
+    let best_font = get_best_font_for_emoji(&emoji);
+    text(emoji).size(size).font(best_font)
+}
 
 pub fn create_extend_card() -> Element<'static, Message> {
     let card_content = container(
         row![
-            container(text("🖥️").size(32).font(EMOJI_FONT))
+            container(create_emoji_text("🖥️", 32))
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
@@ -21,7 +46,7 @@ pub fn create_extend_card() -> Element<'static, Message> {
             .spacing(4)
             .width(Length::Fill),
             button(
-                container(text("⚙️").size(16).font(EMOJI_FONT))
+                container(create_emoji_text("⚙️", 16))
                     .padding(Padding::from([4, 8]))
                     .align_x(alignment::Horizontal::Center)
             )
@@ -49,7 +74,7 @@ pub fn create_display_card(
 ) -> Element<'static, Message> {
     let card_content = container(
         row![
-            container(text(icon).size(32).font(EMOJI_FONT))
+            container(create_emoji_text_dynamic(icon, 32))
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
