@@ -2,53 +2,51 @@ use crate::state::{DisplayMode, Message};
 use iced::widget::{button, column, container, row, text};
 use iced::{alignment, Element, Font, Length, Padding};
 
-// Font fallback system for emoji display
-const EMOJI_FONTS: [Font; 4] = [
-    Font::with_name("Noto Color Emoji"),
-    Font::with_name("FiraCode Nerd Font"),
-    Font::with_name("FiraCode Nerd Font Mono"),
-    Font::with_name("Segoe UI Emoji"),
-];
+// Font constants for emoji display
+const EMOJI_FONT_NOTO: Font = Font::with_name("Noto Color Emoji");
 
-// Emoji mappings for better font compatibility
-fn get_best_font_for_emoji(emoji: &str) -> Font {
-    match emoji {
-        "⚙️" | "🔧" | "🛠️" => EMOJI_FONTS[1], // Use Nerd Font for technical symbols
-        "🖥️" | "💻" | "📱" | "📺" => EMOJI_FONTS[0], // Use Noto Color Emoji for devices
-        _ => EMOJI_FONTS[0],                  // Default to Noto Color Emoji
-    }
+// Create a special function for monitor emoji
+fn create_monitor_emoji() -> iced::widget::Text<'static> {
+    text("🖥️").size(32).font(EMOJI_FONT_NOTO)
 }
 
-fn create_emoji_text(emoji: &'static str, size: u16) -> iced::widget::Text<'static> {
-    let best_font = get_best_font_for_emoji(emoji);
-    text(emoji).size(size).font(best_font)
+// Special function for selection arrow
+fn create_selection_arrow() -> iced::widget::Text<'static> {
+    text("▶").size(16).font(EMOJI_FONT_NOTO)
 }
 
+// Create emoji text for dynamic content
 fn create_emoji_text_dynamic(emoji: String, size: u16) -> iced::widget::Text<'static> {
-    let best_font = get_best_font_for_emoji(&emoji);
-    text(emoji).size(size).font(best_font)
-}
-
-pub fn create_extend_card() -> Element<'static, Message> {
-    create_extend_card_with_selection(false)
+    text(emoji).size(size).font(EMOJI_FONT_NOTO)
 }
 
 pub fn create_extend_card_with_selection(is_selected: bool) -> Element<'static, Message> {
-    let title_text = if is_selected {
-        "▶ Extend displays (3)"
+    let title_content: Element<'static, Message> = if is_selected {
+        row![
+            create_selection_arrow(),
+            text(" Extend displays (3)")
+                .size(18)
+                .style(crate::ui::card_title_text_style()),
+        ]
+        .align_y(alignment::Vertical::Center)
+        .into()
     } else {
-        "Extend displays (3)"
+        text("Extend displays (3)")
+            .size(18)
+            .style(crate::ui::card_title_text_style())
+            .into()
     };
+
+    // Use the special monitor emoji function
+    let monitor_emoji = create_monitor_emoji();
 
     let card_content = container(
         row![
-            container(create_emoji_text("🖥️", 32))
+            container(monitor_emoji)
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
-                text(title_text)
-                    .size(18)
-                    .style(crate::ui::card_title_text_style()),
+                title_content,
                 text("Use displays as one continuous workspace")
                     .size(13)
                     .style(crate::ui::card_description_text_style())
@@ -56,7 +54,7 @@ pub fn create_extend_card_with_selection(is_selected: bool) -> Element<'static, 
             .spacing(4)
             .width(Length::Fill),
             button(
-                container(create_emoji_text("⚙️", 16))
+                container(text("⚙️").size(16).font(EMOJI_FONT_NOTO))
                     .padding(Padding::from([4, 8]))
                     .align_x(alignment::Horizontal::Center)
             )
@@ -76,15 +74,6 @@ pub fn create_extend_card_with_selection(is_selected: bool) -> Element<'static, 
         .into()
 }
 
-pub fn create_display_card(
-    icon: String,
-    title: String,
-    description: String,
-    message: Message,
-) -> Element<'static, Message> {
-    create_display_card_with_selection(icon, title, description, message, false)
-}
-
 pub fn create_display_card_with_selection(
     icon: String,
     title: String,
@@ -92,10 +81,20 @@ pub fn create_display_card_with_selection(
     message: Message,
     is_selected: bool,
 ) -> Element<'static, Message> {
-    let title_text = if is_selected {
-        format!("▶ {}", title)
+    let title_content: Element<'static, Message> = if is_selected {
+        row![
+            create_selection_arrow(),
+            text(format!(" {}", title))
+                .size(18)
+                .style(crate::ui::card_title_text_style()),
+        ]
+        .align_y(alignment::Vertical::Center)
+        .into()
     } else {
-        title
+        text(title)
+            .size(18)
+            .style(crate::ui::card_title_text_style())
+            .into()
     };
 
     let card_content = container(
@@ -104,9 +103,7 @@ pub fn create_display_card_with_selection(
                 .width(60)
                 .align_x(alignment::Horizontal::Center),
             column![
-                text(title_text)
-                    .size(18)
-                    .style(crate::ui::card_title_text_style()),
+                title_content,
                 text(description)
                     .size(13)
                     .style(crate::ui::card_description_text_style())

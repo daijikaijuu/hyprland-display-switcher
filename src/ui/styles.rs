@@ -149,37 +149,6 @@ pub enum ActionButtonType {
     Reset,
 }
 
-pub fn selected_card_button_style() -> impl Fn(&Theme, button::Status) -> button::Style {
-    |_theme: &Theme, status: button::Status| {
-        let background_color = match status {
-            button::Status::Hovered => Color::from_rgba(0.3, 0.6, 0.9, 0.9),
-            button::Status::Pressed => Color::from_rgba(0.25, 0.55, 0.85, 1.0),
-            _ => Color::from_rgba(0.2, 0.5, 0.8, 0.9),
-        };
-
-        let border_color = match status {
-            button::Status::Hovered => Color::from_rgba(0.4, 0.7, 1.0, 1.0),
-            button::Status::Pressed => Color::from_rgba(0.35, 0.65, 0.95, 1.0),
-            _ => Color::from_rgba(0.3, 0.6, 0.9, 1.0),
-        };
-
-        button::Style {
-            background: Some(Background::Color(background_color)),
-            border: Border {
-                radius: 12.into(),
-                width: 2.0,
-                color: border_color,
-            },
-            shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.3),
-                offset: Vector::new(0.0, 4.0),
-                blur_radius: 12.0,
-            },
-            ..Default::default()
-        }
-    }
-}
-
 pub fn card_button_style() -> impl Fn(&Theme, button::Status) -> button::Style {
     |_theme: &Theme, status: button::Status| {
         let background_color = match status {
