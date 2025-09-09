@@ -93,27 +93,27 @@ impl ConfigManager {
         self.save_to_disk()
     }
 
-    pub fn get_last_extend_configuration(&self) -> Option<&ExtendConfiguration> {
-        self.config
-            .last_used_extend_config
-            .as_ref()
-            .and_then(|key| self.config.extend_configurations.get(key))
-    }
-
-    pub fn get_extend_configurations(&self) -> &HashMap<String, ExtendConfiguration> {
-        &self.config.extend_configurations
-    }
-
-    pub fn get_extend_configuration_by_monitors(
-        &self,
-        primary: &str,
-        secondary: &str,
-    ) -> Option<&ExtendConfiguration> {
-        self.config.extend_configurations.values().find(|config| {
-            (config.primary_monitor == primary && config.secondary_monitor == secondary)
-                || (config.primary_monitor == secondary && config.secondary_monitor == primary)
-        })
-    }
+    // pub fn get_last_extend_configuration(&self) -> Option<&ExtendConfiguration> {
+    //     self.config
+    //         .last_used_extend_config
+    //         .as_ref()
+    //         .and_then(|key| self.config.extend_configurations.get(key))
+    // }
+    //
+    // pub fn get_extend_configurations(&self) -> &HashMap<String, ExtendConfiguration> {
+    //     &self.config.extend_configurations
+    // }
+    //
+    // pub fn get_extend_configuration_by_monitors(
+    //     &self,
+    //     primary: &str,
+    //     secondary: &str,
+    // ) -> Option<&ExtendConfiguration> {
+    //     self.config.extend_configurations.values().find(|config| {
+    //         (config.primary_monitor == primary && config.secondary_monitor == secondary)
+    //             || (config.primary_monitor == secondary && config.secondary_monitor == primary)
+    //     })
+    // }
 
     pub fn get_extend_configuration_for_monitors(
         &self,
@@ -146,10 +146,10 @@ impl ConfigManager {
     }
 
     pub fn get_preferred_primary_monitor(&self, available_monitors: &[String]) -> Option<String> {
-        if let Some(last_config) = self.get_extend_configuration_for_monitors(available_monitors) {
-            if available_monitors.contains(&last_config.primary_monitor) {
-                return Some(last_config.primary_monitor.clone());
-            }
+        if let Some(last_config) = self.get_extend_configuration_for_monitors(available_monitors)
+            && available_monitors.contains(&last_config.primary_monitor)
+        {
+            return Some(last_config.primary_monitor.clone());
         }
 
         None

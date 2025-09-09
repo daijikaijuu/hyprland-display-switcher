@@ -9,10 +9,10 @@ pub fn determine_primary_monitor<'a>(
 ) -> &'a Monitor {
     let monitor_names: Vec<String> = monitors.iter().map(|m| m.name.clone()).collect();
 
-    if let Some(preferred_primary) = config_manager.get_preferred_primary_monitor(&monitor_names) {
-        if let Some(monitor) = monitors.iter().find(|m| m.name == preferred_primary) {
-            return monitor;
-        }
+    if let Some(preferred_primary) = config_manager.get_preferred_primary_monitor(&monitor_names)
+        && let Some(monitor) = monitors.iter().find(|m| m.name == preferred_primary)
+    {
+        return monitor;
     }
 
     // Fallback: use focused monitor first, then first monitor
@@ -291,10 +291,10 @@ fn parse_monitor_modes(output: &str, target_monitor: &str) -> Vec<String> {
             // Extract modes from the same line: "availableModes: 1920x1080@60.00Hz ..."
             let modes_str = trimmed.strip_prefix("availableModes:").unwrap_or("").trim();
             for mode_str in modes_str.split_whitespace() {
-                if let Some(resolution) = extract_resolution_from_line(mode_str) {
-                    if !modes.contains(&resolution) {
-                        modes.push(resolution);
-                    }
+                if let Some(resolution) = extract_resolution_from_line(mode_str)
+                    && !modes.contains(&resolution)
+                {
+                    modes.push(resolution);
                 }
             }
             break; // We found the modes line, we're done
